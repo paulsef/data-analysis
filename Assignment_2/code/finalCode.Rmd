@@ -1,0 +1,98 @@
+Final Activity Analysis
+========================================================
+
+Note: This analysis was created on a Mac. Some functions may be altered to be able to run on Windows machines.
+
+-------
+This markdown file was created to accompany the final alaysis write up and allow anyone to reproduce the results therein.
+
+## Preliminaries
+
+### Load the data and any required packages
+
+```{r loadData}
+load("../rawData/samsungData.rda")
+library(randomForest)
+library(caret)
+```
+
+### Explore the data and perform necessary transformations
+
+```{r transformation, dependson = "loadData"}
+# Check for missing values
+sum(is.na(samsungData))
+# Make sure column names are unique
+length(unique(names(samsungData)))
+# Create unique names
+samsungData <- data.frame(samsungData)
+# Change subject variable from numeric to factor
+samsungData$subject <- as.factor(samsungData$subject)
+# Change activity variable from character to factor
+samsungData$activity <- as.factor(samsungData$activity)
+```
+
+
+No missing values, some columns were not unique. 
+
+## Partition data into training, validation, and test sets.
+
+```{r partition, dependson = c('loadData', 'transformation')}
+samsung_training <- subset(samsungData, subject == 1 |
+                             subject == 3 |
+                             subject == 5 |
+                             subject == 6 |
+                             subject == 7 |
+                             subject == 8)
+samsung_training <- samsung_training[,c(1:561, 563)]
+samsung_validation <- subset(samsungData, subject == 11 |
+                               subject == 14 |
+                               subject == 15 |
+                               subject == 16)
+samsung_validation <- samsung_validation[,c(1:561, 563)]
+samsung_test <- subset(samsungData, subject == 27 |
+                         subject == 28 |
+                         subject == 29 | 
+                         subject == 30)
+```
+
+## Make a model and figures
+
+### Create a model using randomForest and predict on test set
+
+```{r model, dependson = c('loadData', 'transformation', 'partition')}
+samsung_forest <- randomForest(activity ~ ., data = samsung_training, prox = TRUE)
+samsung_forest
+predictions <- predict(samsung_forest, samsung_test)
+# calculate failure rate
+(sum(predictions != samsung_test$activity)/(length(predictions)))*100
+```
+
+### Create Figures
+```{r figures, dependson= c('loadData','transformation','partition','model')}
+
+# Figure showing the important variables
+important <- samsung_forest$importance
+important <- important[order(important[,1], decreasing = TRUE),]
+important <- as.matrix(important)
+plot(samsung_training[,rownames(important)[1]],
+     samsung_training[,rownames(important)[3]],
+     col = samsung_training$activity,
+     xlab = rownames(important)[1],
+     ylab = rownames(important)[3])
+
+# Figure visualizing the errors
+percents <- data.frame("actual" = c("laying", "sitting","standing","walk","waldown","walkup"),
+                       "total mistakes" = c(0,48,34,13,12,14),
+                       "laying" = c(0,0,0,0,0,0),
+                       "sitting" = c(0,0,48,0,0,0),
+                       "standing" = c(0,34,0,0,0,0),
+                       "walking" = c(0,0,0,0,4,9),
+                       "downstairs" = c(0,0,0,2,0,11),
+                       "upstairs" = c(0,0,3,0,11,0))
+barplot(as.matrix(percents[,3:8]), 
+        col = percents$actual, 
+        legend = percents$actual,
+        xlab = "Actual Activity", 
+        ylab = "Number of Errors",
+        main = "Error Identification")
+```
