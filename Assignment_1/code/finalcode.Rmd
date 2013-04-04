@@ -1,0 +1,106 @@
+Final Loan Analysis
+========================================================
+
+Note: This analysis was created on a Mac. Some functions may be altered to be able to run on Windows machines.
+
+------
+This markdown file was created to accompany the final alaysis write up and allow anyone to reproduce the results therein. All the code for dowloading and transforming the data, performing exploratory analyses, and creating figures can be found here. 
+
+## Preliminaries
+
+### Download and load data into R, perform necccesary data transformations
+
+```{r loadData}
+#Load Data
+loan <- read.csv('../rawData/loansData.csv')
+
+#Change column (variable) names
+names(loan) <- tolower(names(loan))
+
+# convert interest rate, to numeric class
+loan$interest.rate <- as.numeric(sub(
+  '%', "", as.character(loan$interest.rate)))
+
+#convert FICO score to numeric
+loan$fico.range <- as.character(loan$fico.range)
+loan$fico.range <- as.numeric(gsub('-[0-9]+','',loan$fico.range))
+```
+-------
+## Exploratory analysis
+
+### Find number of missing values/check ranges
+```{r, dependson = "loadData"}
+sum(is.na(loan))
+summary(loan)
+```
+All variables appear to be within normal ranges with the exception of monthly.income which has a max value of 102,750, potential outliers. 
+
+### Look at distribution of FICO scores
+```{r, dependson = "loadData"}
+hist(loan$fico.range)
+```
+FICO scores appear to be right skewed with the majority of scores falling between 600 and 700.
+
+### Look at distribution of interest rates
+```{r, dependson = "loadData"}
+hist(as.numeric(loan$interest.rate))
+```
+Appear evenly distributed but a large number of instances appearing in the 5- 10 range.
+
+### Look at average FICO score per loan length
+```{r, dependson = "loanData"}
+plot(loan$fico.range ~ loan$loan.length)
+
+```
+No difference in mean between the two loan lengths.
+
+## Modeling
+
+### Look at FICO scores vs interest rates
+```{r, depedson = "loadData"}
+plot(loan$interest.rate~loan$fico.range)
+```
+Apparent relationship that is consistent with background knowledge.
+
+### Look at FICO scores vs interest rates colored by loan length
+```{r lm1, dependson = "loadData"}
+lm1 <- lm(loan$interest.rate ~ loan$fico.range + 
+            loan$loan.length + loan$fico.range*loan$loan.length)
+plot(loan$interest.rate ~ loan$fico.range, 
+     pch = 19)
+points(loan$fico.range, loan$interest.rate, pch = 19, 
+       col = loan$loan.length)
+```
+Data is clearly grouped
+
+
+## Get the estimates and confidence intervals
+
+```{r, dependson = "lm1"}
+## The estimate from summary
+summary(lm1)
+
+##The confidence interval from confine
+confint(lm1)
+```
+-------
+## Figure Making
+```{r, dependson = "lm1"}
+
+#Histogram of FICO scores
+hist(loan$fico.range, breaks = 30, xlab = "FICO Score", ylab = "Frequency", main = "")
+mtext(text = "(a)", side = 3, line = 1)
+
+#Boxplot of loan length vs interest rate
+boxplot(loan$interest.rate ~ loan$loan.length, xlab = "Loan Length", ylab = "Interest Rate", main = "",  varwidth = TRUE)
+mtext(text = "(b)", side = 3, line = 1)
+
+#plot of fico range and interest rate colored by loan length
+plot(loan$fico.range, loan$interest.rate, col = loan$loan.length, xlab = "FICO score", ylab = "interest.rate", main = "")
+abline(c(lm1$coeff[1], lm1$coeff[2]), col = "black", lwd = 3)
+abline(c(lm1$coeff[1] + lm1$coeff[3], 
+         lm1$coeff[2] + lm1$coeff[4]), col = "red", lwd = 3)
+legend(715, 24, legend = c("36 month loan","60 month loan"), col = c("black","red"), pch = c(1,1), cex=c(0.7,0.7))
+mtext(text = "(b)", side = 3, line = 1)
+
+```
